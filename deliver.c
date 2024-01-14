@@ -68,6 +68,9 @@ int main (int argc, char const *argv[]) {
 
   if (strncmp(buffer, "yes", BUFFER_SIZE) == 0) {
     printf("A file transfer can start.\n");
+  } else {
+    fprintf(stderr, "reveive message no\n");
+    exit(errno);
   }
 
   close(sfd);
