@@ -17,6 +17,7 @@
 
 
 bool create_message(char* file_name, char*** message_buffer, int* total_fragements) {
+  //open the file
 	FILE* target_file = fopen(file_name, "rb");
 	if (!target_file) {
 		fprintf(stderr, "File does not exist\n");
@@ -33,6 +34,8 @@ bool create_message(char* file_name, char*** message_buffer, int* total_fragemen
 	}
 	fseek(target_file, 0, SEEK_SET);
 
+
+  //create each packet string and store into message_buffer
   char data_buffer[1000];
 	char** message_send = malloc(sizeof(char*) * total_fragment);
 	for (int i = 1; i <= total_fragment; ++ i) {
@@ -43,7 +46,7 @@ bool create_message(char* file_name, char*** message_buffer, int* total_fragemen
 
     int size = fread(data_buffer, 1, 1000, target_file);
     pack->size = size;
-    memcpy(pack->filedata, data_buffer, size);
+    memcpy(pack->file_data, data_buffer, size);
     message_send[i - 1] = malloc(DATA_SIZE * sizeof(char));
     message_send[i - 1] = ptos(pack);
     fprintf(stdout, "packet string #%d made\n", i);
@@ -55,6 +58,7 @@ bool create_message(char* file_name, char*** message_buffer, int* total_fragemen
 	return true;
 }
 
+//send the packet string to server
 bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_frag, char** all_message) {
   for (int i = 1; i <= total_frag; ++ i) {
     int byte_num = 0;
@@ -63,10 +67,10 @@ bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_f
       fprintf(stderr, "send packet_str number %d fail\n", i);
       return false;
     }
-
     fprintf(stdout, "packet string #%d send\n", i);
   }
-
+  
+  //free the packet string memory
   for(int i = 1; i <= total_frag; ++ i) {
     free(all_message[i - 1]);
   }
@@ -74,8 +78,6 @@ bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_f
 
   return true;
 }
-
-
 
 int main (int argc, char const *argv[]) {
   //get the port from input argument

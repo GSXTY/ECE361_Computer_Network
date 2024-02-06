@@ -2,7 +2,6 @@
 #define PACKET_H
 #include <string.h>
 
-#define FILENAME_LEN 100
 #define DATA_SIZE 1100
 
 typedef struct packet {
@@ -10,11 +9,10 @@ typedef struct packet {
     unsigned int frag_no;
     unsigned int size;
     char* file_name;
-    char filedata[1000];
+    char file_data[1000];
 } packet;
 
-char* my_atoi(int val);
-char* ptos(packet* pack_);
-packet* stop(char* packet_str);
+char* ptos(packet* pack_); // convert packet struct into string
+packet* stop(char* packet_str); // convert string into packet struct
 
 #endif

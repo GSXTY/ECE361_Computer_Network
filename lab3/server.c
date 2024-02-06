@@ -67,9 +67,12 @@ int main (int argc, char const *argv[]) {
       exit(errno);
     }
     //pack_str[byte_num] = '\0';
+
+    //conver the packet string into packet struct
     packet* packet_received = stop(pack_str);
     fprintf(stdout, "packet %d recived\n", packet_received->frag_no);
 
+    //declear the new file path
     char file_path[1024];
     snprintf(file_path, sizeof(file_path), "testing/%s", packet_received->file_name);
     
@@ -80,11 +83,14 @@ int main (int argc, char const *argv[]) {
         break;
       }
     }
-    if (file && fwrite(packet_received->filedata, sizeof(char), packet_received->size, file) < packet_received->size) {
+
+    //write in the file
+    if (file && fwrite(packet_received->file_data, sizeof(char), packet_received->size, file) < packet_received->size) {
       fprintf(stderr, "write file in fail\n");
       break;
     }
 
+    //stop while recive the last packet
     if (packet_received->frag_no == packet_received->total_frag) {
       fprintf(stdout, "transfer completed\n");
       fclose(file);

@@ -21,7 +21,7 @@ char* ptos(packet* pack_) {
                               pack_->size,
                               pack_->file_name);
 
-  memcpy(&packet_str[header_offset], pack_->filedata, pack_->size);
+  memcpy(&packet_str[header_offset], pack_->file_data, pack_->size);
   return packet_str;
 }
 
@@ -53,10 +53,10 @@ packet* stop(char* packet_str) {
   str_packet->frag_no = frag_no;
   str_packet->size = size;
   str_packet->file_name = filename;
-  memcpy(str_packet->filedata, filedata, size);
+  memcpy(str_packet->file_data, filedata, size);
 
   if(size < 1000){
-    str_packet->filedata[size] = '\0';
+    str_packet->file_data[size] = '\0';
   }
 
   return str_packet;
