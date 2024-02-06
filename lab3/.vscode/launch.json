@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "type": "lldb",
+          "request": "launch",
+          "name": "deliver",
+          "program": "${workspaceFolder}/lab3/deliver",
+          "args": ["128.100.13.251", "55000"],
+          "cwd": "${workspaceFolder}/lab3"
+      },
+      {
+          "type": "lldb",
+          "request": "launch",
+          "name": "server",
+          "program": "${workspaceFolder}/lab3/server",
+          "args": ["55000"],
+          "cwd": "${workspaceFolder}/lab3"
+      }
+  ],
+  "compounds": [
+      {
+          "name": "Debug Both deliver and server",
+          "configurations": ["deliver", "server"]
+      }
+  ]
+}
