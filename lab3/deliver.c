@@ -62,16 +62,24 @@ bool create_message(char* file_name, char*** message_buffer, int* total_fragemen
 }
 
 //send the packet string to server
-bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_frag, char** all_message, int rrt) {
+bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_frag, char** all_message, double RTT) {
   struct timeval tv;
   fd_set readfds;
 
+  double SRTT, RTTVAR, RTO;
+  SRTT = RTT;
+  RTTVAR = RTT/2;
+  RTO = SRTT + 4*RTTVAR + 1;
+
   FD_ZERO(&readfds);
+
+  clock_t start, end;
 
   for (int i = 1; i <= total_frag; ++ i) {
     char buffer[BUFFER_SIZE];
     socklen_t server_len = sizeof(*server_address);
     int byte_num = 0;
+
     byte_num = sendto(socket_fd, all_message[i - 1], DATA_SIZE, 0, (struct sockaddr *) server_address, sizeof(*server_address));
     if (byte_num < 0) {
       fprintf(stderr, "send packet_str number %d fail\n", i);
@@ -80,7 +88,7 @@ bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_f
     fprintf(stdout, "packet string #%d send\n", i);
 
     while (1) {
-      tv.tv_sec = 2;
+      tv.tv_sec = RTO;
       tv.tv_usec = 0;
       FD_ZERO(&readfds);
       FD_SET(socket_fd, &readfds);
@@ -96,6 +104,7 @@ bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_f
       } else {
         char buffer[BUFFER_SIZE] = {0};
         byte_num = recvfrom(socket_fd, buffer, BUFFER_SIZE, 0, (struct sockaddr*)server_address, &server_len);
+        
         if (byte_num < 0) {
           perror("recvfrom fail");
           return false;
@@ -163,6 +172,9 @@ int main (int argc, char const *argv[]) {
   struct timeval time_begin, time_end;
   gettimeofday(&time_begin, NULL);
 
+
+  clock_t start, end;
+  start = clock();
   //send the message to server
   if (sendto(sfd, "ftp", strlen("ftp"), 0, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
     fprintf(stderr, "send file fail\n");
@@ -173,15 +185,18 @@ int main (int argc, char const *argv[]) {
   socklen_t server_len = sizeof(server_addr);
 
   int byte_num = recvfrom(sfd, buffer, BUFFER_SIZE, 0, (struct sockaddr*)&server_addr, &server_len);
+  end = clock();
 
   if (byte_num < 0) {
     fprintf(stderr, "reveive message fail\n");
     exit(errno);
   }
-
-  gettimeofday(&time_end, NULL);
-  long time_diff = (time_end.tv_sec - time_begin.tv_sec) * 1000L + (time_end.tv_usec - time_begin.tv_usec) / 1000L;
-  fprintf(stdout, "Round Trip Time = %ld ms.\n", time_diff);
+  
+  double RTT = (double) (end - start) / CLOCKS_PER_SEC;
+  printf("RTT: %f\n", RTT);
+  // gettimeofday(&time_end, NULL);
+  // long time_diff = (time_end.tv_sec - time_begin.tv_sec) * 1000L + (time_end.tv_usec - time_begin.tv_usec) / 1000L;
+  // fprintf(stdout, "Round Trip Time = %ld ms.\n", time_diff);
 
   buffer[byte_num] = '\0';
 
@@ -198,7 +213,7 @@ int main (int argc, char const *argv[]) {
     fprintf(stderr, "create message str fail\n");
     return false;
   }
-  if (!send_message(sfd, &server_addr, total_fragements, message, time_diff)) {
+  if (!send_message(sfd, &server_addr, total_fragements, message, RTT)) {
     fprintf(stderr, "send message str fail\n");
     return false;
   }
