@@ -15,4 +15,6 @@ typedef struct packet {
 char* ptos(packet* pack_); // convert packet struct into string
 packet* stop(char* packet_str); // convert string into packet struct
 
+void setTimeout(struct timeval * timeout, double RTO);
+
 #endif

@@ -5,17 +5,17 @@
           "type": "lldb",
           "request": "launch",
           "name": "deliver",
-          "program": "${workspaceFolder}/lab3/deliver",
+          "program": "${workspaceFolder}/deliver",
           "args": ["128.100.13.251", "55000"],
-          "cwd": "${workspaceFolder}/lab3"
+          "cwd": "${workspaceFolder}"
       },
       {
           "type": "lldb",
           "request": "launch",
           "name": "server",
-          "program": "${workspaceFolder}/lab3/server",
+          "program": "${workspaceFolder}/server",
           "args": ["55000"],
-          "cwd": "${workspaceFolder}/lab3"
+          "cwd": "${workspaceFolder}"
       }
   ],
   "compounds": [

@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/select.h>
 #include <stdbool.h>
 #include "packet.h"
 
@@ -18,7 +19,9 @@
 
 bool create_message(char* file_name, char*** message_buffer, int* total_fragements) {
   //open the file
-	FILE* target_file = fopen(file_name, "rb");
+  char full_path[1024];
+  snprintf(full_path, sizeof(full_path), "sending/%s", file_name);
+  FILE* target_file = fopen(full_path, "rb");
 	if (!target_file) {
 		fprintf(stderr, "File does not exist\n");
 		return false;
@@ -59,8 +62,15 @@ bool create_message(char* file_name, char*** message_buffer, int* total_fragemen
 }
 
 //send the packet string to server
-bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_frag, char** all_message) {
+bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_frag, char** all_message, int rrt) {
+  struct timeval tv;
+  fd_set readfds;
+
+  FD_ZERO(&readfds);
+
   for (int i = 1; i <= total_frag; ++ i) {
+    char buffer[BUFFER_SIZE];
+    socklen_t server_len = sizeof(*server_address);
     int byte_num = 0;
     byte_num = sendto(socket_fd, all_message[i - 1], DATA_SIZE, 0, (struct sockaddr *) server_address, sizeof(*server_address));
     if (byte_num < 0) {
@@ -68,16 +78,46 @@ bool send_message(int socket_fd, struct sockaddr_in* server_address, int total_f
       return false;
     }
     fprintf(stdout, "packet string #%d send\n", i);
+
+    while (1) {
+      tv.tv_sec = 2;
+      tv.tv_usec = 0;
+      FD_ZERO(&readfds);
+      FD_SET(socket_fd, &readfds);
+      
+      int rv = select(socket_fd + 1, &readfds, NULL, NULL, &tv);
+      if (rv == -1) {
+        perror("select fail\n");
+        return false;
+      } else if (rv == 0) {
+        printf("over time pack resend %d\n", i+1);
+        i = i - 1;
+        break;
+      } else {
+        char buffer[BUFFER_SIZE] = {0};
+        byte_num = recvfrom(socket_fd, buffer, BUFFER_SIZE, 0, (struct sockaddr*)server_address, &server_len);
+        if (byte_num < 0) {
+          perror("recvfrom fail");
+          return false;
+        }
+        buffer[byte_num] = '\0';
+        
+        if (strcmp(buffer, "ACK") == 0) {
+          break;
+        }
+      }
+    }
+    
   }
-  
-  //free the packet string memory
-  for(int i = 1; i <= total_frag; ++ i) {
-    free(all_message[i - 1]);
+  // Free the packet string memory
+  for(int i = 0; i < total_frag; ++i) {
+    free(all_message[i]);
   }
   free(all_message);
 
   return true;
 }
+
 
 int main (int argc, char const *argv[]) {
   //get the port from input argument
@@ -97,7 +137,6 @@ int main (int argc, char const *argv[]) {
     exit(errno);
   }
 
-
   //get the input
   char command[4];
   char file_name[BUFFER_SIZE];
@@ -110,7 +149,9 @@ int main (int argc, char const *argv[]) {
   }
 
   //check if file exist
-  FILE *file = fopen(file_name, "r");
+  char full_path[1024];
+  snprintf(full_path, sizeof(full_path), "sending/%s", file_name);
+  FILE *file = fopen(full_path, "r");
   if (!file) {
     fprintf(stderr, "file does not exist\n");
     exit(errno);
@@ -151,15 +192,13 @@ int main (int argc, char const *argv[]) {
     exit(errno);
   }
 
-
-
   char** message;
   int total_fragements;
   if (!create_message(file_name, &message, &total_fragements)) {
     fprintf(stderr, "create message str fail\n");
     return false;
   }
-  if (!send_message(sfd, &server_addr, total_fragements, message)) {
+  if (!send_message(sfd, &server_addr, total_fragements, message, time_diff)) {
     fprintf(stderr, "send message str fail\n");
     return false;
   }

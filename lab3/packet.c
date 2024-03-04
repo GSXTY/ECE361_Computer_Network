@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include "packet.h"
-#include <regex.h>
 
 char* ptos(packet* pack_) {
   int s1 = snprintf(NULL, 0, "%d", pack_->total_frag);
@@ -39,11 +38,8 @@ packet* stop(char* packet_str) {
   frag_no = atoi(frag_no_str);
   size = atoi(size_str);
 
-  int udp_header_size = strlen(total_frag_str) +
-                        strlen(frag_no_str) +
-                        strlen(size_str) +
-                        strlen(filename) +
-                        4;
+  int udp_header_size = strlen(total_frag_str) + strlen(frag_no_str) +
+                        strlen(size_str) + strlen(filename) + 4;
 
   filedata = malloc(size*sizeof(char));
   memcpy(filedata, &packet_str[udp_header_size], size);
@@ -62,3 +58,8 @@ packet* stop(char* packet_str) {
   return str_packet;
 }
 
+
+void setTimeout(struct timeval * timeout, double RTO){
+    timeout->tv_sec = RTO/1;
+    timeout->tv_usec = (RTO - timeout->tv_sec)*1000000;
+}
