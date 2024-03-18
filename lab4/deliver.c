@@ -26,37 +26,50 @@ const char* QUIT = "/quit";
 pthread_t client_p;
 
 
-void* rec(void* sfd) {
+void* server_response(void* sfd) {
   int* sockfd = (int*)sfd;
   int byte_num = 0;
   char buffer[MAX_BUFFER] = {0};
-  byte_num = recv(*sockfd, buffer, MAX_BUFFER - 1, 0);
 
   while (1) {
+    byte_num = recv(*sockfd, buffer, MAX_BUFFER - 1, 0);
     if (byte_num < 0) {
       perror("receive server ack fail\n");
       return NULL;
     }
+    if (byte_num == 0) continue;
     buffer[byte_num] = '\0';
     packet* rec_packet = stop(buffer);
     if (rec_packet->type == LO_ACK) {
       printf("login ok \n");
+    } else if (rec_packet->type == JN_ACK) {
+      printf("join session ok \n");
+    } else if (rec_packet->type == JN_NAK) {
+      printf("join session fail \n");
+    } else if (rec_packet->type == NS_ACK) {
+      printf("create session and join ok \n");
+    } else if (rec_packet->type == QU_ACK) {
+      printf("list ok \n");
+      printf("list : %s\n", rec_packet->data);
+    } else if (rec_packet->type == EXIT) {
+      printf("%s\n", rec_packet->data);
     } else {
-      
+      printf("message ok \n");
     }
+    fflush(stdout);
   }
 
   return NULL;
 }
 
 
-bool login(int sfd, struct sockaddr_in* s_addr, char* cid, char* pw, char* sip, int port) {
+bool login(int* sfd, struct sockaddr_in* s_addr, char* cid, char* pw, char* sip, int port, pthread_t* thread) {
   bool rec = true;
   do {
     //connect to server
-    if (connect(sfd, (struct sockaddr *)s_addr, sizeof(*s_addr)) == -1) {
+    if (connect(*sfd, (struct sockaddr *)s_addr, sizeof(*s_addr)) == -1) {
       perror("connet fail\n");
-      close(sfd);
+      close(*sfd);
       rec = false;
       break;
     }
@@ -73,35 +86,24 @@ bool login(int sfd, struct sockaddr_in* s_addr, char* cid, char* pw, char* sip, 
     printf("str = %s\n", packet_str);
 
 
-    if (send(sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
+    if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send login file fail\n");
       rec = false;
       break;
     }
 
-    int byte_num = 0;
-    char buffer[MAX_BUFFER] = {0};
-    byte_num = recv(sfd, buffer, MAX_BUFFER - 1, 0);
-    
-    if (byte_num < 0) {
-      perror("receive login ack fail");
+    if (pthread_create(thread, NULL, server_response, sfd) != 0) {
+      printf("login error\n");
       rec = false;
       break;
     }
-    buffer[byte_num] = '\0';
 
-    //转换 收到的 packet to str
-    packet* rec_packet = stop(buffer);
-    if (rec_packet->type == LO_ACK) {
-      printf("login ok \n");
-      break;
-    }
   } while (0);
 
   return rec;
 }
 
-bool logout(int sfd, struct sockaddr_in* s_addr, char* cid) {
+bool logout(int* sfd, struct sockaddr_in* s_addr, char* cid, pthread_t* thread) {
   bool rec = true;
   do {
     packet p = {0};
@@ -109,30 +111,35 @@ bool logout(int sfd, struct sockaddr_in* s_addr, char* cid) {
     strncpy((char*)p.source, cid, strlen(cid));
     char* packet_str = ptos(&p);
 
-    if (send(sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
+    if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send logout file fail\n");
       rec = false;
       break;
     }
-
-    close(sfd);
-    printf("logout ok\n");
+    if (pthread_cancel(*thread)) {
+      fprintf(stderr, "logout failure\n");
+      rec = false;
+      break;
+    } else {
+      fprintf(stdout, "logout success\n");	
+    } 
   } while (0);
 
   return rec;
 }
 
-bool join_session(int sfd, struct sockaddr_in* s_addr, char* sid, char* cid) {
+bool join_session(int* sfd, struct sockaddr_in* s_addr, char* sid, char* cid, pthread_t* thread) {
   bool rec = true;
   do {
     packet p = {0};
     p.type = JOIN;
-    char *session_id = sid;
+    p.size = strlen(sid);
+    char* session_id = sid;
     strncpy((char*)p.source, cid, strlen(cid));
-    strncpy((char*)p.data, session_id, MAX_DATA);
+    strncpy((char*)p.data, session_id, strlen(session_id));
     char* packet_str = ptos(&p);
 
-    if (send(sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
+    if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send join file fail\n");
       rec = false;
       break;
@@ -142,7 +149,7 @@ bool join_session(int sfd, struct sockaddr_in* s_addr, char* sid, char* cid) {
   return rec;
 }
 
-bool leave_session(int sfd, struct sockaddr_in* s_addr, char* cid) {
+bool leave_session(int* sfd, struct sockaddr_in* s_addr, char* cid, pthread_t* thread) {
   bool rec = true;
   do {
     packet p = {0};
@@ -150,7 +157,7 @@ bool leave_session(int sfd, struct sockaddr_in* s_addr, char* cid) {
     strncpy((char*)p.source, cid, strlen(cid));
     char* packet_str = ptos(&p);
 
-    if (send(sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
+    if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send leave file fail\n");
       rec = false;
       break;
@@ -160,17 +167,19 @@ bool leave_session(int sfd, struct sockaddr_in* s_addr, char* cid) {
   return rec;
 }
 
-bool create_session(int sfd, struct sockaddr_in* s_addr, char* sid, char* cid) {
+bool create_session(int* sfd, struct sockaddr_in* s_addr, char* sid, char* cid, pthread_t* thread) {
   bool rec = true;
   do {
     packet p = {0};
     p.type = NEW_SESS;
-    char* packet_str = ptos(&p);
+    p.size = strlen(sid);
     char* session_id = sid;
     strncpy((char*)p.source, cid, strlen(cid));
-    strncpy((char*)p.data, session_id, MAX_DATA);
+    strncpy((char*)p.data, session_id, strlen(session_id));
 
-    if (send(sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
+    char* packet_str = ptos(&p);
+
+    if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send create file fail\n");
       rec = false;
       break;
@@ -180,7 +189,7 @@ bool create_session(int sfd, struct sockaddr_in* s_addr, char* sid, char* cid) {
   return rec;
 }
 
-bool list(int sfd, struct sockaddr_in* s_addr, char* cid) {
+bool list(int* sfd, struct sockaddr_in* s_addr, char* cid, pthread_t* thread) {
   bool rec = true;
   do {
     packet p = {0};
@@ -188,7 +197,7 @@ bool list(int sfd, struct sockaddr_in* s_addr, char* cid) {
     strncpy((char*)p.source, cid, strlen(cid));
     char* packet_str = ptos(&p);
 
-    if (send(sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
+    if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send list file fail\n");
       rec = false;
       break;
@@ -198,16 +207,17 @@ bool list(int sfd, struct sockaddr_in* s_addr, char* cid) {
   return rec;
 }
 
-bool send_text(int sfd, struct sockaddr_in* s_addr, char* text, char* cid) {
+bool send_text(int* sfd, char* text, char* cid, pthread_t* thread) {
   bool rec = true;
   do {
     packet p = {0};
     p.type = MESSAGE;
-    strncpy((char*)p.data, text, MAX_DATA);
+    p.size = strlen(text);
+    strncpy((char*)p.data, text, strlen(text));
     strncpy((char*)p.source, cid, strlen(cid));
     char* packet_str = ptos(&p);
 
-    if (send(sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
+    if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send list file fail\n");
       rec = false;
       break;
@@ -225,10 +235,10 @@ int main (int argc, char const *argv[]) {
   struct sockaddr_in server_addr = {0};
   server_addr.sin_family = AF_INET;
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  const char* client_id = "";
-  const char* password = "";
-  const char* ip = "";
-  char* session_id = "";
+  char client_id[MAX_BUFFER];
+  char password[MAX_BUFFER];
+  char ip[MAX_BUFFER];
+  char session_id[MAX_BUFFER];
   int port = -1;
 
   fd_set read_fds;
@@ -242,10 +252,12 @@ int main (int argc, char const *argv[]) {
 
     // /login mo 123 128.100.13.251 55000
     if (strcmp(command, LOG_IN) == 0) {
-      client_id = strtok(NULL, " "); 
-      password = strtok(NULL, " "); 
-      ip = strtok(NULL, " ");      
+      strcpy(client_id, strtok(NULL, " ")); 
+      strcpy(password, strtok(NULL, " "));
+      strcpy(ip, strtok(NULL, " "));
       port = atoi(strtok(NULL, " "));
+
+
       if (sockfd == -1) {
         perror("create socket fail\n");
         exit(EXIT_FAILURE);
@@ -257,50 +269,53 @@ int main (int argc, char const *argv[]) {
         fprintf(stderr, "ips convertion fail\n");
         exit(errno);
       }
-      bool rec = login(sockfd, &server_addr, (char*)client_id, (char*)password, (char*)ip, port);
+      bool rec = login(&sockfd, &server_addr, (char*)client_id, (char*)password, (char*)ip, port, &client_p);
       if (!rec) {
         printf("login function fail\n");
       }
 
     } else if (strcmp(command, LOG_OUT) == 0) {
-      bool rec = logout(sockfd, &server_addr, (char*)client_id);
+      bool rec = logout(&sockfd, &server_addr, (char*)client_id, &client_p);
       if (!rec) {
         printf("logout function fail\n");
       }
     
     } else if (strcmp(command, JOIN_SESSION) == 0) {
-      session_id = strtok(NULL, " ");
-      bool rec = join_session(sockfd, &server_addr,  session_id, (char*)client_id);
+      strcpy(session_id, strtok(NULL, " "));
+      bool rec = join_session(&sockfd, &server_addr,  session_id, (char*)client_id, &client_p);
       if (!rec) {
         printf("join function fail\n");
       }
     
     } else if (strcmp(command, LEAVE_SESSION) == 0) {
-      bool rec = leave_session(sockfd, &server_addr, (char*)client_id);
+      bool rec = leave_session(&sockfd, &server_addr, (char*)client_id, &client_p);
       if (!rec) {
         printf("leave function fail\n");
       }
     
     } else if (strcmp(command, CREATE_SESSION) == 0) {
-      session_id = strtok(NULL, " ");
-      bool rec = create_session(sockfd, &server_addr, session_id, (char*)client_id);
+      strcpy(session_id, strtok(NULL, " "));
+      bool rec = create_session(&sockfd, &server_addr, session_id, (char*)client_id, &client_p);
       if (!rec) {
         printf("create function fail\n");
       }
     
     } else if (strcmp(command, LIST) == 0) {
-      bool rec = list(sockfd, &server_addr, (char*)client_id);
+      bool rec = list(&sockfd, &server_addr, (char*)client_id, &client_p);
       if (!rec) {
         printf("list function fail\n");
       }
 
     } else if (strcmp(command, QUIT) == 0) {
-      bool rec = logout(sockfd, &server_addr, (char*)client_id);
+      bool rec = logout(&sockfd, &server_addr, (char*)client_id, &client_p);
       if (!rec) {
         printf("quit function fail\n");
       }
     } else {
-
+      bool rec = send_text(&sockfd, input, (char*)client_id, &client_p);
+      if (!rec) {
+        printf("send text function fail\n");
+      }
     }
   }
 
