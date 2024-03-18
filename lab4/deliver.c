@@ -64,26 +64,50 @@ void* server_response(void* sfd) {
 }
 
 
-bool login(int* sfd, struct sockaddr_in* s_addr, char* cid, char* pw, char* sip, int port, pthread_t* thread) {
+bool login(int* sfd, struct sockaddr_in* s_addr, char* cid, char* pw, char* sip, const char* port, pthread_t* thread) {
   bool rec = true;
   do {
     //connect to server
-    if (connect(*sfd, (struct sockaddr *)s_addr, sizeof(*s_addr)) == -1) {
-      perror("connet fail\n");
-      close(*sfd);
+    int rv;
+		struct addrinfo hints, *servinfo, *p;
+		char s[INET6_ADDRSTRLEN];
+		memset(&hints, 0, sizeof hints);
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		
+		if ((rv = getaddrinfo(sip, (const char*)port, &hints, &servinfo)) != 0) {
+			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+      rec = false;
+			break;
+		}
+		for(p = servinfo; p != NULL; p = p->ai_next) {
+			if ((*sfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+				fprintf(stderr ,"client: socket\n");
+				continue;
+			}
+			if (connect(*sfd, p->ai_addr, p->ai_addrlen) == -1) {
+				close(*sfd);
+				fprintf(stderr, "client: connect\n");
+				continue;
+			}
+			break; 
+		}
+		if (p == NULL) {
+			fprintf(stderr, "client: failed to connect from addrinfo\n");
+			close(*sfd);
+      *sfd = -1;
       rec = false;
       break;
-    }
-    printf("connect successed\n");
+		}
 
     //prepare message
-    packet p = {0};
-    strncpy((char*)p.data, pw, MAX_DATA);
-    strncpy((char*)p.source, cid, MAX_NAME);
-    p.type = LOGIN;
-    p.size = strlen((char*)p.data);
+    packet pk = {0};
+    strncpy((char*)pk.data, pw, MAX_DATA);
+    strncpy((char*)pk.source, cid, MAX_NAME);
+    pk.type = LOGIN;
+    pk.size = strlen((char*)pk.data);
 
-    char* packet_str = ptos(&p);
+    char* packet_str = ptos(&pk);
     printf("str = %s\n", packet_str);
 
 
@@ -259,7 +283,8 @@ int main (int argc, char const *argv[]) {
       strcpy(client_id, strtok(NULL, " ")); 
       strcpy(password, strtok(NULL, " "));
       strcpy(ip, strtok(NULL, " "));
-      port = atoi(strtok(NULL, " "));
+      const char* pt = strtok(NULL, " ");
+      port = atoi(pt);
       if (sockfd != -1) {
         close(sockfd);
         sockfd = -1;
@@ -277,7 +302,7 @@ int main (int argc, char const *argv[]) {
         fprintf(stderr, "ips convertion fail\n");
         exit(errno);
       }
-      bool rec = login(&sockfd, &server_addr, (char*)client_id, (char*)password, (char*)ip, port, &client_p);
+      bool rec = login(&sockfd, &server_addr, (char*)client_id, (char*)password, (char*)ip, pt, &client_p);
       if (!rec) {
         printf("login function fail\n");
       }
