@@ -292,10 +292,7 @@ void* event_handler(void *arg) {
 
 int main (int argc, char const *argv[]) {
   struct addrinfo hints, *servinfo, *p;
-  struct sockaddr_storage their_addr;
-  socklen_t sin_size;
   int yes = 1;
-  char s[INET6_ADDRSTRLEN];
   int rv;
 
   int port = atoi(argv[1]);
@@ -311,20 +308,18 @@ int main (int argc, char const *argv[]) {
 
   int sockfd;
   for(p = servinfo; p != NULL; p = p->ai_next) {
-    if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                    p->ai_protocol)) == -1) {
-        perror("Server: socket");
-        continue;
+    if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
+      perror("Server: socket");
+      continue;
     }
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                sizeof(int)) == -1) {
-        perror("setsockopt");
-        exit(1);
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+      perror("setsockopt");
+      exit(1);
     }
     if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-        close(sockfd);
-        perror("Server: bind");
-        continue;
+      close(sockfd);
+      perror("Server: bind");
+      continue;
     }
     break;
   }
