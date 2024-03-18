@@ -53,8 +53,9 @@ void* server_response(void* sfd) {
       printf("list : %s\n", rec_packet->data);
     } else if (rec_packet->type == EXIT) {
       printf("%s\n", rec_packet->data);
-    } else {
+    } else if (rec_packet->type == MESSAGE){
       printf("message ok \n");
+      printf("%s\n", rec_packet->data);
     }
     fflush(stdout);
   }
@@ -123,6 +124,9 @@ bool logout(int* sfd, struct sockaddr_in* s_addr, char* cid, pthread_t* thread) 
     } else {
       fprintf(stdout, "logout success\n");	
     } 
+
+    close(*sfd);
+    *sfd = -1;
   } while (0);
 
   return rec;
@@ -256,7 +260,11 @@ int main (int argc, char const *argv[]) {
       strcpy(password, strtok(NULL, " "));
       strcpy(ip, strtok(NULL, " "));
       port = atoi(strtok(NULL, " "));
-
+      if (sockfd != -1) {
+        close(sockfd);
+        sockfd = -1;
+      }
+      sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
       if (sockfd == -1) {
         perror("create socket fail\n");

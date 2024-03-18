@@ -200,9 +200,19 @@ void message_handler(packet** pack, user** new_user) {
   packet* rec_packet = *pack;
   char* message = (char*)(rec_packet->data);
 
+  packet back_p = {0};
+  back_p.type = MESSAGE;
+  back_p.size = strlen(message);
+  memcpy(back_p.source, "server", strlen("server"));
+  memcpy(back_p.data, message, strlen(message));
+
+  char* mes = ptos(&back_p);
+
   for (int i = 0; i < user_num; ++ i) {
-    if (strcmp(users[i]->session_id, session_id) == 0 && strcmp((char*)users[1]->name, (char*)(*new_user)->name) != 0) {
-      if((send((*new_user)->sockfd, message, MAX_BUFFER - 1, 0)) == -1) {
+    char* uname = (char*)users[i]->name;
+    char* current_user = (char*)(*new_user)->name;
+    if (strcmp(users[i]->session_id, session_id) == 0 && strcmp(uname, current_user) != 0) {
+      if((send(users[i]->sockfd, mes, MAX_BUFFER - 1, 0)) == -1) {
         printf("send message fail\n");
         return;
       }
@@ -210,13 +220,6 @@ void message_handler(packet** pack, user** new_user) {
   }
   
 
-  packet back_p = {0};
-  back_p.type = MESSAGE;
-
-  char* back_str = ptos(&back_p);
-  if (send((*new_user)->sockfd, back_str, MAX_BUFFER - 1, 0) == -1) {
-    printf("send message ack fail\n");
-  }
 
 }
 
@@ -282,7 +285,7 @@ void* event_handler(void *arg) {
       logout_handler(&new_user);
     } else if (p->type == MESSAGE) {
       message_handler(&p, &new_user);
-    } 
+    }
     
   }
   return NULL;
@@ -297,9 +300,14 @@ int main (int argc, char const *argv[]) {
     fprintf(stderr, "socket_fd fail\n");
     exit(errno);
   }
+  int yes = 1;
+  if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+    perror("setsockopt");
+    exit(1);
+  }
 
   struct sockaddr_in server_addr = {0};
-  memset(server_addr.sin_zero, 0, sizeof(server_addr.sin_zero));
+  //memset(server_addr.sin_zero, 0, sizeof(server_addr.sin_zero));
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(port);
   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
