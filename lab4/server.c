@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +25,6 @@ int current_session_num = 0;
 
 char* server_session = "";
 
-pthread_mutex_t sessionList_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t user_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t sessionCnt_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t userConnectedCnt_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -218,8 +216,6 @@ void message_handler(packet** pack, user** new_user) {
       }
     }
   }
-  
-
 
 }
 
@@ -271,7 +267,6 @@ void* event_handler(void *arg) {
     }
     buffer[byte_num] = '\0';
 
-
     packet* p = stop(buffer);
 
     if (p->type == LOGIN) {
@@ -297,7 +292,7 @@ void* event_handler(void *arg) {
 
 int main (int argc, char const *argv[]) {
   struct addrinfo hints, *servinfo, *p;
-  struct sockaddr_storage their_addr; // connector's address information
+  struct sockaddr_storage their_addr;
   socklen_t sin_size;
   int yes = 1;
   char s[INET6_ADDRSTRLEN];
@@ -306,10 +301,9 @@ int main (int argc, char const *argv[]) {
   int port = atoi(argv[1]);
 
   memset(&hints, 0, sizeof(hints));
-  // hints.ai_family = AF_UNSPEC;
   hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;    // Use TCP
-  hints.ai_flags = AI_PASSIVE;        // use my IP
+  hints.ai_socktype = SOCK_STREAM;    
+  hints.ai_flags = AI_PASSIVE;       
   if ((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
     return 1;
@@ -334,29 +328,8 @@ int main (int argc, char const *argv[]) {
     }
     break;
   }
-  freeaddrinfo(servinfo); // all done with this structure
+  freeaddrinfo(servinfo); 
 
-
-
-  //get the port from input argument
-  // int port = atoi(argv[1]);
-  // int sfd = socket(AF_INET, SOCK_STREAM, 0);
-  // if (sfd < 0) {
-  //   fprintf(stderr, "socket_fd fail\n");
-  //   exit(errno);
-  // }
-
-  // struct sockaddr_in server_addr = {0};
-  // //memset(server_addr.sin_zero, 0, sizeof(server_addr.sin_zero));
-  // server_addr.sin_family = AF_INET;
-  // server_addr.sin_port = htons(port);
-  // server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-  // //bind sfd with server address
-  // if (-1 == bind(sfd, (struct sockaddr *)&server_addr, sizeof(server_addr))) {
-  //   fprintf(stderr, "bind fail\n");
-  //   exit(errno);
-  // }
   if (listen(sockfd, 10) < 0) {
     perror("listen failed");
     exit(EXIT_FAILURE);
@@ -384,10 +357,8 @@ int main (int argc, char const *argv[]) {
 
   }
 
-  // 清理
   close(sockfd);
-
-  
+ 
 
   return 0;
 }

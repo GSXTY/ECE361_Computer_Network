@@ -30,7 +30,6 @@ void* server_response(void* sfd) {
   int* sockfd = (int*)sfd;
   int byte_num = 0;
   char buffer[MAX_BUFFER] = {0};
-
   while (1) {
     byte_num = recv(*sockfd, buffer, MAX_BUFFER - 1, 0);
     if (byte_num < 0) {
@@ -49,12 +48,10 @@ void* server_response(void* sfd) {
     } else if (rec_packet->type == NS_ACK) {
       printf("create session and join ok \n");
     } else if (rec_packet->type == QU_ACK) {
-      printf("list ok \n");
-      printf("list : %s\n", rec_packet->data);
+      printf("list:%s\n", rec_packet->data);
     } else if (rec_packet->type == EXIT) {
       printf("%s\n", rec_packet->data);
     } else if (rec_packet->type == MESSAGE){
-      printf("message ok \n");
       printf("%s\n", rec_packet->data);
     }
     fflush(stdout);
@@ -108,8 +105,7 @@ bool login(int* sfd, struct sockaddr_in* s_addr, char* cid, char* pw, char* sip,
     pk.size = strlen((char*)pk.data);
 
     char* packet_str = ptos(&pk);
-    printf("str = %s\n", packet_str);
-
+    //printf("str = %s\n", packet_str);
 
     if (send(*sfd, packet_str, MAX_BUFFER - 1, 0) < 0) {
       fprintf(stderr, "send login file fail\n");
@@ -274,7 +270,7 @@ int main (int argc, char const *argv[]) {
 
   while (1) {
     fgets(input, MAX_BUFFER, stdin);
-    input[strcspn(input, "\n")] = 0;  // 移除换行符
+    input[strcspn(input, "\n")] = 0; 
 
     const char* command = strtok(input, " ");  
 
@@ -344,6 +340,7 @@ int main (int argc, char const *argv[]) {
       if (!rec) {
         printf("quit function fail\n");
       }
+      break;
     } else {
       bool rec = send_text(&sockfd, input, (char*)client_id, &client_p);
       if (!rec) {
@@ -352,6 +349,7 @@ int main (int argc, char const *argv[]) {
     }
   }
 
-
+  close(sockfd);
+  sockfd = -1;
   return 0;
 }

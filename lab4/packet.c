@@ -5,26 +5,22 @@
 #include "packet.h"
 
 char* ptos(packet* pack_) {
-  // 计算字符串的长度，包括数字和分隔符
   int s1 = snprintf(NULL, 0, "%d", pack_->type);
   int s2 = snprintf(NULL, 0, "%d", pack_->size);
   int s3 = strlen((char*)pack_->source);
 
-  // 分配足够的内存来存放类型、大小、源地址、数据和分隔符
-  int total_size = s1 + 1 + s2 + 1 + s3 + 1 + pack_->size + 1; // 包括冒号和结束符的空间
+  int total_size = s1 + 1 + s2 + 1 + s3 + 1 + pack_->size + 1;
   char *packet_str = malloc(total_size);
   if (!packet_str) {
     perror("Memory allocation failed");
     exit(EXIT_FAILURE);
   }
 
-  // 把类型和大小写入字符串
   int offset = sprintf(packet_str, "%d:%d:%s:", pack_->type, pack_->size, pack_->source);
   
-  // 复制数据
   memcpy(packet_str + offset, pack_->data, pack_->size);
-  offset += pack_->size; // 更新偏移量
-  packet_str[offset] = '\0'; // 确保字符串以空字符结尾
+  offset += pack_->size;
+  packet_str[offset] = '\0';
 
   return packet_str;
 }
