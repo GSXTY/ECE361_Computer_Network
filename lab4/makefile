@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I. -g -O0
+CFLAGS=-I. -g -O0 -lpthread
 
 all: server deliver
 

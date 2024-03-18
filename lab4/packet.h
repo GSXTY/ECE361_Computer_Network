@@ -1,8 +1,9 @@
 #ifndef PACKET_H
 #define PACKET_H
 #include <string.h>
+#include <pthread.h>
 
-#define DATA_SIZE 1100
+#define MAX_BUFFER 1024
 
 #define MAX_NAME 32
 #define MAX_DATA 512
@@ -33,6 +34,15 @@ typedef struct packet {
 char* ptos(packet* pack_); // convert packet struct into string
 packet* stop(char* packet_str); // convert string into packet struct
 
-void setTimeout(struct timeval * timeout, double RTO);
+
+typedef struct user {
+    unsigned char name[MAX_NAME];
+    unsigned char password[MAX_DATA];
+    int log_status;
+    int session_status;
+    char* session_id;
+    int sockfd;         
+    pthread_t p;      
+} user;
 
 #endif

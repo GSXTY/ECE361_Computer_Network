@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+      {
+          "type": "lldb",
+          "request": "launch",
+          "name": "deliver",
+          "program": "${workspaceFolder}/deliver",
+          "args": [],
+          "cwd": "${workspaceFolder}"
+      },
+      {
+          "type": "lldb",
+          "request": "launch",
+          "name": "server",
+          "program": "${workspaceFolder}/server",
+          "args": ["55000"],
+          "cwd": "${workspaceFolder}"
+      }
+  ],
+  "compounds": [
+      {
+          "name": "Debug Both deliver and server",
+          "configurations": ["deliver", "server"]
+      }
+  ]
+}

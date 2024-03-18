@@ -5,61 +5,58 @@
 #include "packet.h"
 
 char* ptos(packet* pack_) {
-  int s1 = snprintf(NULL, 0, "%d", pack_->total_frag);
-  int s2 = snprintf(NULL, 0, "%d", pack_->frag_no);
-  int s3 = snprintf(NULL, 0, "%d", pack_->size);
-  int s4 = strlen(pack_->file_name);
-  int s5 = pack_->size;
-  int total_size = s1 + s2 + s3 + s4 + s5; 
+  // 计算字符串的长度，包括数字和分隔符
+  int s1 = snprintf(NULL, 0, "%d", pack_->type);
+  int s2 = snprintf(NULL, 0, "%d", pack_->size);
+  int s3 = strlen((char*)pack_->source);
 
-  char * packet_str = malloc((total_size + 4) * sizeof(char));
+  // 分配足够的内存来存放类型、大小、源地址、数据和分隔符
+  int total_size = s1 + 1 + s2 + 1 + s3 + 1 + pack_->size + 1; // 包括冒号和结束符的空间
+  char *packet_str = malloc(total_size);
+  if (!packet_str) {
+    perror("Memory allocation failed");
+    exit(EXIT_FAILURE);
+  }
 
-  int header_offset = sprintf(packet_str, "%d:%d:%d:%s:",
-                              pack_->total_frag,
-                              pack_->frag_no,
-                              pack_->size,
-                              pack_->file_name);
+  // 把类型和大小写入字符串
+  int offset = sprintf(packet_str, "%d:%d:%s:", pack_->type, pack_->size, pack_->source);
+  
+  // 复制数据
+  memcpy(packet_str + offset, pack_->data, pack_->size);
+  offset += pack_->size; // 更新偏移量
+  packet_str[offset] = '\0'; // 确保字符串以空字符结尾
 
-  memcpy(&packet_str[header_offset], pack_->file_data, pack_->size);
   return packet_str;
 }
 
 packet* stop(char* packet_str) {
   struct packet * str_packet;
-  char *total_frag_str, *frag_no_str, *size_str, *filename, *filedata;
-  int total_frag, frag_no, size;
+  char *type, *size, *source, *data;
+  int ptype, psize;
 
-  total_frag_str = strtok(packet_str, ":");
-  frag_no_str = strtok(NULL, ":");
-  size_str = strtok(NULL, ":");
-  filename = strtok(NULL, ":");
+  type = strtok(packet_str, ":");
+  size = strtok(NULL, ":");
+  source = strtok(NULL, ":");
 
-  total_frag = atoi(total_frag_str);
-  frag_no = atoi(frag_no_str);
-  size = atoi(size_str);
+  ptype = atoi(type);
+  psize = atoi(size);
 
-  int udp_header_size = strlen(total_frag_str) + strlen(frag_no_str) +
-                        strlen(size_str) + strlen(filename) + 4;
+  if (!source) {
+    source = "server"; //default
+  }
 
-  filedata = malloc(size*sizeof(char));
-  memcpy(filedata, &packet_str[udp_header_size], size);
+  int header_size = strlen(type) + strlen(size) + strlen(source) + 3;
+
+  data = malloc(psize * sizeof(char));
+  memcpy(data, &packet_str[header_size], psize);
 
   str_packet = malloc(sizeof(struct packet));
-  str_packet->total_frag = total_frag;
-  str_packet->frag_no = frag_no;
-  str_packet->size = size;
-  str_packet->file_name = filename;
-  memcpy(str_packet->file_data, filedata, size);
+  str_packet->type = ptype;
+  str_packet->size = psize;
 
-  if(size < 1000){
-    str_packet->file_data[size] = '\0';
-  }
+  memcpy(str_packet->source, source, strlen(source));
+  memcpy(str_packet->data, data, psize);
 
   return str_packet;
 }
 
-
-void setTimeout(struct timeval * timeout, double RTO){
-    timeout->tv_sec = RTO/1;
-    timeout->tv_usec = (RTO - timeout->tv_sec)*1000000;
-}
